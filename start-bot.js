@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 const { spawn } = require("child_process");
+const readline = require("readline");
 
 function runCommand(command, args, options = {}) {
   return new Promise((resolve, reject) => {
@@ -44,8 +45,8 @@ async function main() {
     console.clear();
     printBanner();
 
-    // Encerra o script, deixando o PM2 rodando em background
-    process.exit(0);
+    // Aguarda o usuário pressionar uma tecla para encerrar
+    waitForKeyPress();
   } catch (error) {
     console.error("Error:", error);
     process.exit(1);
@@ -64,6 +65,17 @@ function printBanner() {
        crypto clarify is running...
   `;
   console.log(banner);
+}
+
+function waitForKeyPress() {
+  readline.emitKeypressEvents(process.stdin);
+  if (process.stdin.isTTY) {
+    process.stdin.setRawMode(true);
+  }
+  console.log("\nPress any key to exit...");
+  process.stdin.on("keypress", () => {
+    process.exit(0);
+  });
 }
 
 main();

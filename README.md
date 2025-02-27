@@ -6,6 +6,6 @@
 - install git
 - install pm2 `npm i pm2 -g`
 - run `chmod +x start-bot.sh` to give permission (only windows and mac)
-- click on `start-bot-linux-mac.sh` or `start-bot-windows.bat` to start bot
+- click o run `start-bot-linux-mac.sh` or `start-bot-windows.bat` to start bot;
 - run `pm2 logs` to see logs (optional)
 - run `pm2 delete all` to delete/kill all bot instances (optional)

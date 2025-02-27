@@ -30,6 +30,20 @@ async function tryRun(command, args) {
   }
 }
 
+// Função para iniciar o PM2 de forma não bloqueante (detached)
+function startPM2() {
+  return new Promise((resolve) => {
+    const child = spawn("pm2", ["start", "ecosystem.config.js", "--no-daemon"], {
+      detached: true,
+      stdio: "ignore",
+      shell: true,
+    });
+    child.unref();
+    // Aguarda 1 segundo para dar tempo de iniciar o PM2
+    setTimeout(resolve, 1000);
+  });
+}
+
 async function main() {
   try {
     console.log("Force updating repository...");
@@ -43,29 +57,18 @@ async function main() {
     await tryRun("npm", ["run", "build"]);
 
     console.log("Starting bot with PM2 in detached mode...");
-    // Inicia o PM2 em modo detached para que os logs não sejam exibidos no terminal
-    await tryRun("pm2", ["start", "ecosystem.config.js", "--no-daemon"], {
-      detached: true,
-      stdio: "ignore",
-    });
-
-    // Aguarda 1 segundo para garantir que o comando de start foi concluído
-    await delay(1000);
+    await startPM2();
 
     // Limpa o terminal e exibe somente o banner
     console.clear();
     printBanner();
 
-    // Aguarda o usuário pressionar uma tecla para encerrar
+    // Aguarda que o usuário pressione uma tecla para encerrar
     waitForKeyPress();
   } catch (error) {
     console.error("Error:", error);
     process.exit(1);
   }
-}
-
-function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function printBanner() {

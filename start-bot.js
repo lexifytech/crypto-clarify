@@ -2,7 +2,7 @@
 const { spawn, execSync } = require("child_process");
 const readline = require("readline");
 
-// Registra um handler para que, quando o processo principal sair, seja executado o comando pm2 kill
+// Handler para que, quando o processo principal sair, seja executado "pm2 kill"
 process.on("exit", () => {
   try {
     console.log("Process exiting. Killing PM2 processes...");
@@ -43,7 +43,7 @@ async function tryRun(command, args) {
   }
 }
 
-// Função para iniciar o PM2 de forma não bloqueante (detached)
+// Inicia o PM2 de forma detached (não bloqueante)
 function startPM2() {
   return new Promise((resolve) => {
     const child = spawn(
@@ -76,15 +76,16 @@ async function main() {
     console.log("Starting bot with PM2 in detached mode...");
     await startPM2();
 
-    // Aguarda 1 segundo para garantir que o PM2 iniciou
+    // Aguarda um instante para garantir que o PM2 iniciou
     await delay(1000);
 
     // Limpa o terminal e exibe somente o banner
     console.clear();
     printBanner();
 
-    // Aguarda o usuário pressionar uma tecla para encerrar
-    waitForKeyPress();
+    console.log("\nBot is running. Press Ctrl+C to exit.");
+    // Mantém o processo vivo indefinidamente
+    keepAlive();
   } catch (error) {
     console.error("Error:", error);
     process.exit(1);
@@ -109,15 +110,11 @@ function printBanner() {
   console.log(banner);
 }
 
-function waitForKeyPress() {
-  readline.emitKeypressEvents(process.stdin);
-  if (process.stdin.isTTY) {
-    process.stdin.setRawMode(true);
-  }
-  console.log("\nPress any key to exit...");
-  process.stdin.on("keypress", () => {
-    process.exit(0);
-  });
+// Função que mantém o processo vivo
+function keepAlive() {
+  setInterval(() => {
+    // Apenas para manter o processo ativo
+  }, 1000);
 }
 
 main();

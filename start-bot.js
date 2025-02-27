@@ -60,8 +60,11 @@ async function main() {
     console.log("Starting bot with PM2 in no-daemon mode...");
     const pm2Args = ["start", "ecosystem.config.js", "--no-daemon"];
     await runCommand("pm2", pm2Args);
-
     console.log("Bot started successfully.");
+    console.clear();
+    printBanner()
+
+
   } catch (error) {
     console.error("Error:", error);
     process.exit(1);
@@ -69,3 +72,19 @@ async function main() {
 }
 
 main();
+
+
+
+function printBanner() {
+  const banner = `
+   _________           .___      __       __________       __          
+  /   _____/ ____   ____|__|____/  |_  ___\\______   \\____ _/  |_  ____  
+  \\_____  \\ /  _ \\ /    \\  \\__  \\   __\\/  _ \\|    |  _/ __ \\_/ __ \\
+  /        (  <_> )   |  \\  |/ __ \\|  | (  <_> )    |   \\  ___/\\  ___/
+ /_______  /\\____/|___|  /__(____  /__|  \\____/|______  /\\___  >\\___  >
+         \\/            \\/        \\/                  \\/     \\/     \\/ 
+
+       crypto clarify is running...
+  `;
+  console.log(banner);
+}

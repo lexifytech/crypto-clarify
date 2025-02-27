@@ -22,26 +22,37 @@ function runCommand(command, args, options = {}) {
   });
 }
 
+async function tryRun(command, args) {
+  try {
+    await runCommand(command, args);
+  } catch (error) {
+    console.error(`Command "${command} ${args.join(" ")}" failed:`, error.message);
+  }
+}
+
 async function main() {
   try {
     console.log("Force updating repository...");
-    await runCommand("git", ["fetch", "--all"]);
-    await runCommand("git", ["reset", "--hard", "origin/main"]);
+    await tryRun("git", ["fetch", "--all"]);
+    await tryRun("git", ["reset", "--hard", "origin/main"]);
 
     console.log("Running yarn...");
-    await runCommand("yarn", []);
+    await tryRun("yarn", []);
 
     console.log("Building the project (npm run build)...");
-    await runCommand("npm", ["run", "build"]);
+    await tryRun("npm", ["run", "build"]);
 
     console.log("Starting bot with PM2 in detached mode...");
     // Inicia o PM2 em modo detached para que os logs não sejam exibidos no terminal
-    await runCommand("pm2", ["start", "ecosystem.config.js", "--no-daemon"], {
+    await tryRun("pm2", ["start", "ecosystem.config.js", "--no-daemon"], {
       detached: true,
       stdio: "ignore",
     });
 
-    // Se tudo ocorrer bem, limpa o terminal e exibe somente o banner
+    // Aguarda 1 segundo para garantir que o comando de start foi concluído
+    await delay(1000);
+
+    // Limpa o terminal e exibe somente o banner
     console.clear();
     printBanner();
 
@@ -51,6 +62,10 @@ async function main() {
     console.error("Error:", error);
     process.exit(1);
   }
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function printBanner() {

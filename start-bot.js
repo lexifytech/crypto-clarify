@@ -43,11 +43,13 @@ function runCommand(command, args, options = {}) {
   });
 }
 
+
+
 async function main() {
   try {
     console.log("Force updating repository...");
-    await tryRun("git", ["fetch", "--all"]);
-    await tryRun("git", ["reset", "--hard", "origin/main"]);
+    await runCommand("git", ["fetch", "--all"]);
+    await runCommand("git", ["reset", "--hard", "origin/main"]);
 
     console.log("Running yarn...");
     await runCommand("yarn", []);

@@ -1,0 +1,5 @@
+{
+    "RPC_ENDPOINT": "https://mainnet.helius-rpc.com/?api-key=",
+    "SECRET_KEY": "",
+    "SLIPPAGE": 2
+}

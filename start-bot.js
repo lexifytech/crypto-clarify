@@ -2,11 +2,17 @@
 const { spawn, execSync } = require("child_process");
 const readline = require("readline");
 
-// Handler para que, quando o processo principal sair, seja executado "pm2 kill"
+let pm2Process = null;
+
+// Quando o processo principal sair, tentamos matar o processo do PM2
 process.on("exit", () => {
   try {
     console.log("Process exiting. Killing PM2 processes...");
-    execSync("pm2 kill", { stdio: "inherit", shell: true });
+    if (pm2Process) {
+      pm2Process.kill();
+    } else {
+      execSync("pm2 kill", { stdio: "inherit", shell: true });
+    }
   } catch (e) {
     console.error("Failed to kill PM2 processes:", e.message);
   }
@@ -36,26 +42,18 @@ async function tryRun(command, args) {
   try {
     await runCommand(command, args);
   } catch (error) {
-    console.error(
-      `Command "${command} ${args.join(" ")}" failed:`,
-      error.message
-    );
+    console.error(`Command "${command} ${args.join(" ")}" failed:`, error.message);
   }
 }
 
-// Inicia o PM2 de forma detached (não bloqueante)
+// Inicia o PM2 como processo filho (não detached)
 function startPM2() {
   return new Promise((resolve) => {
-    const child = spawn(
-      "pm2",
-      ["start", "ecosystem.config.js", "--no-daemon"],
-      {
-        detached: true,
-        stdio: "ignore",
-        shell: true,
-      }
-    );
-    child.unref();
+    pm2Process = spawn("pm2", ["start", "ecosystem.config.js", "--no-daemon"], {
+      // Não usamos detached para que o PM2 fique vinculado ao processo principal
+      stdio: "ignore",
+      shell: true,
+    });
     // Aguarda 1 segundo para dar tempo de iniciar o PM2
     setTimeout(resolve, 1000);
   });
@@ -73,10 +71,10 @@ async function main() {
     console.log("Building the project (npm run build)...");
     await tryRun("npm", ["run", "build"]);
 
-    console.log("Starting bot with PM2 in detached mode...");
+    console.log("Starting bot with PM2 in foreground mode...");
     await startPM2();
 
-    // Aguarda um instante para garantir que o PM2 iniciou
+    // Aguarda 1 segundo para garantir que o PM2 iniciou
     await delay(1000);
 
     // Limpa o terminal e exibe somente o banner
@@ -110,7 +108,7 @@ function printBanner() {
   console.log(banner);
 }
 
-// Função que mantém o processo vivo
+// Função que mantém o processo vivo (o banner ficará visível)
 function keepAlive() {
   setInterval(() => {
     // Apenas para manter o processo ativo

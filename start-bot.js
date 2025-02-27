@@ -1,24 +1,6 @@
 #!/usr/bin/env node
 const { spawn } = require("child_process");
 
-let cleanedUp = false;
-
-function cleanup() {
-  if (cleanedUp) return;
-  cleanedUp = true;
-  console.log("Terminal is closing. Killing PM2 processes...");
-  // Executa "pm2 kill" para encerrar todos os processos PM2
-  const killChild = spawn("pm2", ["kill"], { stdio: "inherit", shell: true });
-  killChild.on("exit", (code) => {
-    process.exit(code);
-  });
-}
-
-// Registra os listeners para sinais comuns de encerramento
-process.on("SIGINT", cleanup);
-process.on("SIGTERM", cleanup);
-process.on("SIGHUP", cleanup);
-
 function runCommand(command, args, options = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
@@ -26,24 +8,18 @@ function runCommand(command, args, options = {}) {
       shell: true,
       ...options,
     });
-    child.on("error", (err) => {
-      reject(err);
-    });
+    child.on("error", (err) => reject(err));
     child.on("exit", (code) => {
-      if (code === 0) {
-        resolve();
-      } else {
+      if (code === 0) resolve();
+      else
         reject(
           new Error(
             `Command "${command} ${args.join(" ")}" exited with code ${code}`
           )
         );
-      }
     });
   });
 }
-
-
 
 async function main() {
   try {
@@ -57,23 +33,24 @@ async function main() {
     console.log("Building the project (npm run build)...");
     await runCommand("npm", ["run", "build"]);
 
-    console.log("Starting bot with PM2 in no-daemon mode...");
-    const pm2Args = ["start", "ecosystem.config.js", "--no-daemon"];
-    await runCommand("pm2", pm2Args);
-    console.log("Bot started successfully.");
+    console.log("Starting bot with PM2 in detached mode...");
+    // Inicia o PM2 em modo detached para que os logs não sejam exibidos no terminal
+    await runCommand("pm2", ["start", "ecosystem.config.js", "--no-daemon"], {
+      detached: true,
+      stdio: "ignore",
+    });
+
+    // Se tudo ocorrer bem, limpa o terminal e exibe somente o banner
     console.clear();
-    printBanner()
+    printBanner();
 
-
+    // Encerra o script, deixando o PM2 rodando em background
+    process.exit(0);
   } catch (error) {
     console.error("Error:", error);
     process.exit(1);
   }
 }
-
-main();
-
-
 
 function printBanner() {
   const banner = `
@@ -88,3 +65,5 @@ function printBanner() {
   `;
   console.log(banner);
 }
+
+main();

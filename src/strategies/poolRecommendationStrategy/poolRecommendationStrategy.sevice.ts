@@ -165,14 +165,8 @@ export default class PoolRecommendationStrategyService {
     let countOpenedPositions = 0;
     let balances = [];
 
-    const pools = await this.dex.fetchPools("orca");
-
-    const top10ByTvl = pools
-      .sort((a, b) => parseFloat(b.tvlUsdc) - parseFloat(a.tvlUsdc))
-      .slice(0, 10);
-    const opportunities = top10ByTvl.sort(
-      (a, b) => parseFloat(b.yieldOverTvl) - parseFloat(a.yieldOverTvl)
-    );
+    // SELECT POOLS
+    const opportunities = await this.fetchAndSelectBestPools();
 
     if (!opportunities || opportunities.length <= 0)
       return " - No opportunities.";
@@ -481,5 +475,32 @@ export default class PoolRecommendationStrategyService {
     } else {
       return 5;
     }
+  }
+
+  async fetchAndSelectBestPools() {
+    // TOP VOLUMES
+    // TOP TVL
+    // TOP yieldOverTvl
+    // yieldOverTvl + 0.3
+
+    const pools = await this.dex.fetchPools("orca");
+    const topByTvl = pools
+      .sort((a, b) => parseFloat(b.tvlUsdc) - parseFloat(a.tvlUsdc))
+      .slice(0, 15);
+    const opportunities = topByTvl
+      .sort((a, b) => parseFloat(b.yieldOverTvl) - parseFloat(a.yieldOverTvl))
+      .filter((o) => parseFloat(o.yieldOverTvl) * 100 > 0.3);
+    const sumYield = opportunities.reduce(
+      (sum, e) => sum + parseFloat(e.yieldOverTvl),
+      0
+    );
+
+    const averageYield = sumYield / opportunities.length;
+    console.log(
+      "RECOMMENDATIONS AVERAGE YELD (24H):",
+      (averageYield * 100).toFixed(2) + "%",
+      `TO ${opportunities.length} OPPORTINITIES.`
+    );
+    return opportunities;
   }
 }

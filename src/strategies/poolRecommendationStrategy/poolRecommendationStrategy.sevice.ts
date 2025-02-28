@@ -111,8 +111,8 @@ export default class PoolRecommendationStrategyService {
       const peakUsdAmount = Math.max(
         ...storagedPosition.updates.map((update: any) => update.usdAmount)
       );
-      const stopTrailingUsd = position.amountPositionUsd - peakUsdAmount;
-      const stopTrailingPercent = (stopTrailingUsd / peakUsdAmount) * 100;
+      const stopTrailingUsd = parseFloat((position.amountPositionUsd - peakUsdAmount).toFixed(2));
+      const stopTrailingPercent = parseFloat(((stopTrailingUsd / peakUsdAmount) * 100).toFixed());
 
       console.log(
         "STOP TRAILING:",
@@ -146,7 +146,7 @@ export default class PoolRecommendationStrategyService {
         await this.dex.closePositionByPositionId("orca", position.positionId);
         await database.closePosition(position.positionMint);
         countClosePositions++;
-        logClosePositions += `${position.positionMint} ~ $${position.amountPositionUsd}`;
+        logClosePositions += ` - ${minimizeHash(position.positionMint)} ~ $${position.amountPositionUsd}`;
         console.log(
           ` - ${minimizeHash(position.positionMint)} ~ $${
             position.amountPositionUsd
@@ -165,21 +165,11 @@ export default class PoolRecommendationStrategyService {
     let countOpenedPositions = 0;
     let balances = [];
 
-    // SELECT POOLS
-    const opportunities = await this.fetchAndSelectBestPools();
-
-    if (!opportunities || opportunities.length <= 0)
-      return " - No opportunities.";
-
     if (
       positions.length >=
       userSettings["POOLRECOMMENDATIONSTRATEGY"]["SIMULTANEOUS_ENTRIES"]
     )
       return "";
-
-    const newOpportunities = opportunities.filter(
-      (o: any) => !positions.find((p) => p.poolAddress === o.address)
-    );
 
     const { balances: b, errorMessages } =
       await this.verifyBalancesBeforeExecute();
@@ -187,6 +177,13 @@ export default class PoolRecommendationStrategyService {
     balances = b;
 
     if (errorMessages.length > 0) return "No balance";
+
+    const opportunities = await this.fetchAndSelectBestPools();
+    if (!opportunities || opportunities.length <= 0)
+      return " - No opportunities.";
+    const newOpportunities = opportunities.filter(
+      (o: any) => !positions.find((p) => p.poolAddress === o.address)
+    );
 
     for (let opportunity of newOpportunities) {
       try {
@@ -255,19 +252,29 @@ export default class PoolRecommendationStrategyService {
 
         logOpenPositions += ` - POSITION OPENED: ${opportunity.tokenA.symbol}/${opportunity.tokenB.symbol} ~$${userSettings["POOLRECOMMENDATIONSTRATEGY"]["USD_ENTRY_VALUE"]}\n`;
         countOpenedPositions++;
+
+        // WAIT TO FOUND IT IN NEXT STEP
+        await new Promise((resolve) => setTimeout(resolve, 1000));
       } catch (error: any) {
         const messageError = error.message as string;
         if (messageError.includes("insufficient lamports")) {
           logOpenPositions += ` - ERRO OPENING POSITION: INSUFFICIENT LAMPORTS (YOU NEED MORE SOL)\n`;
         } else if (messageError.includes("insufficient funds")) {
           logOpenPositions += ` - ERRO OPENING POSITION: INSUFFICIENT FUNDS (SWAP WAS WRONG)\n`;
+        } else if (messageError.includes("TokenMaxExceeded")) {
+          logOpenPositions += ` - ERRO OPENING POSITION: SEND MORE TOKENS THAN NEED (SWAP WAS WRONG)\n`;
+        } else if (messageError.includes("block height exceeded")) {
+          logOpenPositions += ` - ERRO OPENING POSITION: BLOCK HEIGHT EXEEDED TRY AGAIN\n`;
         } else if (
           messageError.includes("tick_array_lower") ||
           messageError.includes("tick_array_upper")
         ) {
           logOpenPositions += ` - ERRO OPENING POSITION: TICK ARE NOT RIGTH (SWAP WAS WRONG)\n`;
         } else {
-          logOpenPositions += ` - ERRO OPENING POSITION: ${error.message}`;
+          logOpenPositions += ` - ERRO OPENING POSITION: UNKNOWN ERROR`;
+        }
+        console.log(logOpenPositions);
+        if (logOpenPositions.includes("UNKNOWN ERROR")) {
           console.log(error.message);
         }
       }
@@ -347,7 +354,7 @@ export default class PoolRecommendationStrategyService {
       } (${pnlUsdPercent.toFixed(2)}% ~ $${pnlUsd.toFixed(2)})\n`;
       positionAmountUsd += position.amountPositionUsd;
     }
-    logBalances += `   POSITIONS AMOUNT: $${positionAmountUsd.toFixed(
+    logBalances += `   POSITIONS AMOUNT: ~ $${positionAmountUsd.toFixed(
       2
     )} (${amountPnlUsdPercent.toFixed(2)}% ~ $${amountPnlUsValue.toFixed(2)})`;
 
@@ -497,7 +504,7 @@ export default class PoolRecommendationStrategyService {
 
     const averageYield = sumYield / opportunities.length;
     console.log(
-      "RECOMMENDATIONS AVERAGE YELD (24H):",
+      "RECOMMENDATIONS AVERAGE YELD 24H FOR RANGE 30:",
       (averageYield * 100).toFixed(2) + "%",
       `TO ${opportunities.length} OPPORTINITIES.`
     );

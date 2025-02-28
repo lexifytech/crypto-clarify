@@ -122,9 +122,14 @@ export default class OrcaService {
 
   public getOpenPositions = async () => {
     const poolsNFT = await this.getPoolsNFT();
-    let positionIds = poolsNFT.map(
-      (token: any) => token.mint_extensions.mint_close_authority.close_authority
-    );
+    let positionIds = poolsNFT.map((token: any) => {
+      try {
+        return token.mint_extensions.mint_close_authority.close_authority || "";
+      } catch (error) {
+        return "";
+      }
+    }).filter((id: string)=> id !== "")
+
     const tokenAccounts = (
       await this.ctx.connection.getTokenAccountsByOwner(
         this.ctx.wallet.publicKey,
@@ -255,13 +260,6 @@ export default class OrcaService {
     const baseToken =
       baseTokenMint === tokenA.address.toBase58() ? tokenA : tokenB;
 
-    console.log(
-      `ESTIMATING POOL -> ${baseTokenMint} = ${DecimalUtil.fromBN(
-        baseTokenAmount,
-        baseToken.decimals
-      )}`
-    );
-
     const sqrtPriceX64 = whirlpool.getData().sqrtPrice;
 
     const price = PriceMath.sqrtPriceX64ToPrice(
@@ -329,21 +327,21 @@ export default class OrcaService {
 
     console.log(
       `I WILL NEED -> ${tokenA.address.toString()} = ${DecimalUtil.fromBN(
-        quote.tokenMaxA,
+        quote.tokenEstA,
         tokenA.decimals
-      )} (${quote.tokenMaxA})`
+      )} (${quote.tokenEstA})`
     );
 
     console.log(
       `I WILL NEED -> ${tokenB.address.toString()} = ${DecimalUtil.fromBN(
-        quote.tokenMaxB,
+        quote.tokenEstB,
         tokenB.decimals
-      )}  (${quote.tokenMaxB})`
+      )}  (${quote.tokenEstB})`
     );
 
     return {
-      amountTokenA: quote.tokenMaxA,
-      amountTokenB: quote.tokenMaxB,
+      amountTokenA: quote.tokenEstA,
+      amountTokenB: quote.tokenEstB,
       positionQuote,
       tokenA,
       tokenB,

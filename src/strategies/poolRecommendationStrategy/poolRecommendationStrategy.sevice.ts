@@ -407,8 +407,8 @@ export default class PoolRecommendationStrategyService {
 
     const solTokenBalance = balances.find((e) => e.mint === config.SOL_MINT);
 
-    if (!solTokenBalance || solTokenBalance?.amountUSD <= 5) {
-      console.log(`Insufficient SOL Balance. You need > $5 in SOL`);
+    if (!solTokenBalance || solTokenBalance?.amountUSD <= 2) {
+      console.log(`Insufficient SOL Balance. You need > $2 in SOL`);
       errorMessages.push(`Insufficient SOL Balance. You need > $5 in SOL`);
     }
 

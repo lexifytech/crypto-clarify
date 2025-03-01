@@ -93,7 +93,7 @@ export type TPositionData = {
   amountTokenA: number;
   amountTokenB: number;
   amountTokenAUsd: number;
-  amountTokenBUSD: number;
+  amountTokenBUsd: number;
   amountPositionUsd: number;
   inRange: boolean;
 };

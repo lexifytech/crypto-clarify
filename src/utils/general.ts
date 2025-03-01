@@ -8,14 +8,8 @@ export async function retryOperation(
       return await operation();
     } catch (error: any) {
       if (attempt === maxAttempts) {
-        throw new Error(
-          `Operation failured after ${maxAttempts} attempts: ${error.message}`
-        );
+        return null
       }
-      console.log(
-        `Attempt ${attempt} failured. retrying in ${delay} ms...`,
-        error.message
-      );
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }

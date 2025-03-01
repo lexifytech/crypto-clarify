@@ -122,13 +122,17 @@ export default class OrcaService {
 
   public getOpenPositions = async () => {
     const poolsNFT = await this.getPoolsNFT();
-    let positionIds = poolsNFT.map((token: any) => {
-      try {
-        return token.mint_extensions.mint_close_authority.close_authority || "";
-      } catch (error) {
-        return "";
-      }
-    }).filter((id: string)=> id !== "")
+    let positionIds = poolsNFT
+      .map((token: any) => {
+        try {
+          return (
+            token.mint_extensions.mint_close_authority.close_authority || ""
+          );
+        } catch (error) {
+          return "";
+        }
+      })
+      .filter((id: string) => id !== "");
 
     const tokenAccounts = (
       await this.ctx.connection.getTokenAccountsByOwner(
@@ -212,7 +216,7 @@ export default class OrcaService {
           humanAmountTokenA
         ).toFixed(2)
       );
-      const amountTokenBUSD = parseFloat(
+      const amountTokenBUsd = parseFloat(
         (
           parseFloat(this.solanaService.prices[tokenBAddress]) *
           humanAmountTokenB
@@ -220,7 +224,7 @@ export default class OrcaService {
       );
 
       const amountPositionUsd = parseFloat(
-        (amountTokenAUsd + amountTokenBUSD).toFixed(2)
+        (amountTokenAUsd + amountTokenBUsd).toFixed(2)
       );
 
       positions.push({
@@ -237,7 +241,7 @@ export default class OrcaService {
         amountTokenA: humanAmountTokenA,
         amountTokenB: humanAmountTokenB,
         amountTokenAUsd,
-        amountTokenBUSD,
+        amountTokenBUsd,
         amountPositionUsd,
         inRange,
       });
@@ -403,31 +407,31 @@ export default class OrcaService {
     rangePercent: number,
     isMock = false
   ) => {
-    if (isMock) return "FAKE POSITION MINT";
-
-    const signature = await positionQuote.tx.buildAndExecute();
-    const latestBlockhash = await this.ctx.connection.getLatestBlockhash();
-    await this.ctx.connection.confirmTransaction(
-      { signature, ...latestBlockhash },
-      "confirmed"
-    );
+    let signature = "";
+    if (!isMock) {
+      signature = await positionQuote.tx.buildAndExecute();
+      const latestBlockhash = await this.ctx.connection.getLatestBlockhash();
+      await this.ctx.connection.confirmTransaction(
+        { signature, ...latestBlockhash },
+        "confirmed"
+      );
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+    } else {
+      signature = "MOCK SIGNATURE";
+    }
     const positionMint = positionQuote.positionMint.toBase58();
 
     const positions = await this.getOpenPositions();
 
     const position = positions.find((p) => p.positionMint === positionMint);
 
-    const usdAmount = parseFloat(
-      (
-        (position?.amountTokenAUsd || 0) + (position?.amountTokenBUSD || 0)
-      ).toFixed(2)
-    );
+    const usdAmount = parseFloat((position?.amountPositionUsd || 0).toFixed(2));
 
     const tokenAAmountUsd = parseFloat(
       position?.amountTokenAUsd.toFixed(2) || "0"
     );
     const tokenBAmountUsd = parseFloat(
-      position?.amountTokenBUSD.toFixed(2) || "0"
+      position?.amountTokenBUsd.toFixed(2) || "0"
     );
 
     database.addPosition({

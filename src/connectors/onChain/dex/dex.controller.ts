@@ -1,3 +1,4 @@
+import { retryOperation } from "../../../utils/general";
 import JupiterService from "./jupter/jupiter.service";
 import OrcaService from "./orca/orca.service";
 
@@ -67,17 +68,24 @@ export default class DexController {
     outputMint: string,
     amount: number,
     considerAmountTokenOut: boolean = false,
-    mock = false
+    mock = false,
+    attempts = 1
   ) {
     if (dexName === "jupiter") {
-      const estimateSwapRes = await this.jupterService.estimateSwap(
-        inputMint,
-        outputMint,
-        amount,
-        considerAmountTokenOut
+      return retryOperation(
+        async () => {
+          const estimateSwapRes = await this.jupterService.estimateSwap(
+            inputMint,
+            outputMint,
+            amount,
+            considerAmountTokenOut
+          );
+          if (!mock) await this.jupterService.executeSwap(estimateSwapRes);
+          return estimateSwapRes;
+        },
+        1000,
+        attempts
       );
-      if (!mock) await this.jupterService.executeSwap(estimateSwapRes);
-      return estimateSwapRes;
     }
     throw new Error("Dex not implemented");
   }

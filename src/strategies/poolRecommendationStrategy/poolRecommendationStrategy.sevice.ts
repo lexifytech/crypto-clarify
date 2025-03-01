@@ -66,21 +66,21 @@ export default class PoolRecommendationStrategyService {
     if (logClosePositions) {
       completeLog += logClosePositions;
     } else {
-      completeLog += " - No positions closed.";
+      completeLog += " - NOTHING.";
     }
 
     completeLog += "\n\nSTER 2: OPEN POSITIONS:\n";
     if (logOpenPositiions) {
       completeLog += logOpenPositiions;
     } else {
-      completeLog += " - No positions opened.";
+      completeLog += " - NOTHING.";
     }
 
     completeLog += "\n\nSTEP 3: SOLD TOKENS :\n";
     if (logSellTokens) {
       completeLog += logSellTokens;
     } else {
-      completeLog += " - No tokens swaped.";
+      completeLog += " - NOTHING.";
     }
 
     if (logBalances) {
@@ -111,8 +111,12 @@ export default class PoolRecommendationStrategyService {
       const peakUsdAmount = Math.max(
         ...storagedPosition.updates.map((update: any) => update.usdAmount)
       );
-      const stopTrailingUsd = parseFloat((position.amountPositionUsd - peakUsdAmount).toFixed(2));
-      const stopTrailingPercent = parseFloat(((stopTrailingUsd / peakUsdAmount) * 100).toFixed());
+      const stopTrailingUsd = parseFloat(
+        (position.amountPositionUsd - peakUsdAmount).toFixed(2)
+      );
+      const stopTrailingPercent = parseFloat(
+        ((stopTrailingUsd / peakUsdAmount) * 100).toFixed()
+      );
 
       console.log(
         "STOP TRAILING:",
@@ -124,7 +128,7 @@ export default class PoolRecommendationStrategyService {
       await database.addPositionUpdate(position.positionMint, {
         date: new Date(),
         tokenAAmountUsd: position.amountTokenAUsd,
-        tokenBAmountUsd: position.amountTokenBUSD,
+        tokenBAmountUsd: position.amountTokenBUsd,
         usdAmount: position.amountPositionUsd,
         usdPNL,
         usdPercentPNL,
@@ -146,7 +150,9 @@ export default class PoolRecommendationStrategyService {
         await this.dex.closePositionByPositionId("orca", position.positionId);
         await database.closePosition(position.positionMint);
         countClosePositions++;
-        logClosePositions += ` - ${minimizeHash(position.positionMint)} ~ $${position.amountPositionUsd}`;
+        logClosePositions += ` - ${minimizeHash(position.positionMint)} ~ $${
+          position.amountPositionUsd
+        }`;
         console.log(
           ` - ${minimizeHash(position.positionMint)} ~ $${
             position.amountPositionUsd
@@ -162,6 +168,7 @@ export default class PoolRecommendationStrategyService {
 
   async part2OpenPools(positions: TPositionData[]) {
     let logOpenPositions = "";
+    let swapErrosCount = 0;
     let countOpenedPositions = 0;
     let balances = [];
 
@@ -187,6 +194,16 @@ export default class PoolRecommendationStrategyService {
 
     for (let opportunity of newOpportunities) {
       try {
+        if ((logOpenPositions.match(/ERROR/g) || []).length >= 2) {
+          console.log("SO MANY ERROS");
+          return logOpenPositions + "\n - TOO MANY ERROS";
+        }
+
+        if (swapErrosCount >= 2) {
+          console.log("SO MANY SWAP ERROS");
+          return logOpenPositions + "\n - TOO MANY SWAP ERROS";
+        }
+
         if (
           positions.length + countOpenedPositions >=
           userSettings["POOLRECOMMENDATIONSTRATEGY"]["SIMULTANEOUS_ENTRIES"]
@@ -197,7 +214,8 @@ export default class PoolRecommendationStrategyService {
           const { balances: b, errorMessages } =
             await this.verifyBalancesBeforeExecute();
           balances = b;
-          if (errorMessages.length > 0) continue;
+          if (errorMessages.length > 0)
+            return logOpenPositions + "\n - NO BALANCE ENOUGH";
         }
 
         const usdEntryValue =
@@ -236,7 +254,10 @@ export default class PoolRecommendationStrategyService {
           balances
         );
 
-        if (!swapsRes) continue;
+        if (!swapsRes) {
+          swapErrosCount++;
+          continue;
+        }
 
         console.log(
           "TOKENS AVAILABLE TO POOL:",
@@ -258,20 +279,20 @@ export default class PoolRecommendationStrategyService {
       } catch (error: any) {
         const messageError = error.message as string;
         if (messageError.includes("insufficient lamports")) {
-          logOpenPositions += ` - ERRO OPENING POSITION: INSUFFICIENT LAMPORTS (YOU NEED MORE SOL)\n`;
+          logOpenPositions += ` - ERROR OPENING POSITION: INSUFFICIENT LAMPORTS (YOU NEED MORE SOL)\n`;
         } else if (messageError.includes("insufficient funds")) {
-          logOpenPositions += ` - ERRO OPENING POSITION: INSUFFICIENT FUNDS (SWAP WAS WRONG)\n`;
+          logOpenPositions += ` - ERROR OPENING POSITION: INSUFFICIENT FUNDS (SWAP WAS WRONG)\n`;
         } else if (messageError.includes("TokenMaxExceeded")) {
-          logOpenPositions += ` - ERRO OPENING POSITION: SEND MORE TOKENS THAN NEED (SWAP WAS WRONG)\n`;
+          logOpenPositions += ` - ERROR OPENING POSITION: SEND MORE TOKENS THAN NEED (SWAP WAS WRONG)\n`;
         } else if (messageError.includes("block height exceeded")) {
-          logOpenPositions += ` - ERRO OPENING POSITION: BLOCK HEIGHT EXEEDED TRY AGAIN\n`;
+          logOpenPositions += ` - ERROR OPENING POSITION: BLOCK HEIGHT EXEEDED TRY AGAIN\n`;
         } else if (
           messageError.includes("tick_array_lower") ||
           messageError.includes("tick_array_upper")
         ) {
-          logOpenPositions += ` - ERRO OPENING POSITION: TICK ARE NOT RIGTH (SWAP WAS WRONG)\n`;
+          logOpenPositions += ` - ERROR OPENING POSITION: TICK ARE NOT RIGTH (SWAP WAS WRONG)\n`;
         } else {
-          logOpenPositions += ` - ERRO OPENING POSITION: UNKNOWN ERROR`;
+          logOpenPositions += ` - ERROR OPENING POSITION: UNKNOWN ERROR`;
         }
         console.log(logOpenPositions);
         if (logOpenPositions.includes("UNKNOWN ERROR")) {
@@ -302,14 +323,25 @@ export default class PoolRecommendationStrategyService {
       const outputMint =
         userSettings["POOLRECOMMENDATIONSTRATEGY"]["BASE_ASSET"];
       const inputAmount = balance.amount;
-      await this.dex.executeDirectSwap(
+
+      const executeDirectSwapRes = await this.dex.executeDirectSwap(
         "jupiter",
         inputMint,
         outputMint,
-        inputAmount
+        inputAmount,
+        false,
+        false,
+        2
       );
+
+      if (!executeDirectSwapRes) {
+        console.log("ERRO TO SWAP");
+        logSellTokens += ` - ERRO TO SWAP: ${minimizeHash(inputMint)} ~$${
+          balance.amountUSD
+        }\n`;
+      }
       soldTokens.push(inputMint);
-      logSellTokens += ` - ${minimizeHash(inputMint)} ~$${balance.amountUSD}\n`;
+      logSellTokens += ` - ${minimizeHash(inputMint)} ~$${balance.amountUSD}`;
     }
 
     // WALLET WALLET HOLD LOG
@@ -341,7 +373,7 @@ export default class PoolRecommendationStrategyService {
         storagedPosition.updates[storagedPosition.updates.length - 1];
 
       const pnlUsd = parseFloat(
-        (position.amountPositionUsd - lastUpdate.usdAmount).toFixed(2)
+        (storagedPosition.usdAmount - lastUpdate.usdAmount).toFixed(2)
       );
       const pnlUsdPercent = parseFloat(
         ((pnlUsd / lastUpdate.usdAmount) * 100).toFixed(2)
@@ -462,7 +494,7 @@ export default class PoolRecommendationStrategyService {
 
       return { outputAmountA, outputAmountB };
     } catch (error: any) {
-      console.log("ERRO SWAPPING: ", error.message);
+      console.log("ERROR SWAPPING: ", error.message);
       return null;
     }
   }

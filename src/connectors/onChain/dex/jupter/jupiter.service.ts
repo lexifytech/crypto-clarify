@@ -8,6 +8,7 @@ import { getMint } from "@solana/spl-token";
 import { database } from "../../../../services/database.service";
 import SolanaService from "../../chain/solana/solana.service";
 import { config } from "../../../../config/config";
+import { retryOperation } from "../../../../utils/general";
 
 export default class JupiterService {
   private static instance: JupiterService;
@@ -144,10 +145,7 @@ export default class JupiterService {
           confirmation.value.err
         )}\nhttps://solscan.io/tx/${swapSignature}/`
       );
-    } else
-      console.log(
-        `SWAP DONE`
-      );
+    } else console.log(`SWAP DONE`);
 
     const swapRes = {
       inputMint: swapReq.inputMint,

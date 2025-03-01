@@ -1,34 +1,31 @@
 const { spawn } = require("child_process");
+const robot = require("robotjs");
 const generalParams = require("./settings/general.json");
 
 const processName = generalParams.TELEGRAM_BOT_FATHER_TOKEN;
 
 async function main() {
-  // TRY TO STOP OLD SESSION
   await shutdown();
 
-  // FORCE CODE UPDATE
   await tryRun("git", ["fetch", "--all"]);
   await tryRun("git", ["reset", "--hard", "origin/main"]);
 
-  // INSTALL DEPENDENCIES
   await tryRun("yarn", []);
 
-  // BUILD APP
   await tryRun("npm", ["run", "build"]);
 
-  // START PM2 INSTANCE
   await tryRun("npx", ["pm2", "start", "dist/index.js", "--name", processName]);
 
-  // CLEAN TERMINAL AND PLOT BANNER
   console.clear();
   printBanner();
 }
 
 main();
 
+// Mantém o processo ativo para que o terminal não feche
 process.stdin.resume();
 
+// Captura sinais de encerramento e executa o shutdown
 process.on("SIGINT", () => {
   shutdown()
     .catch((err) => console.error("Erro no SIGINT shutdown:", err))
@@ -76,6 +73,16 @@ async function tryRun(command, args) {
     );
   }
 }
+
+function moveMousePeriodically() {
+  const pos = robot.getMousePos();
+  robot.moveMouse(pos.x + 1, pos.y + 1);
+  setTimeout(() => {
+    robot.moveMouse(pos.x, pos.y);
+  }, 1000);
+}
+
+setInterval(moveMousePeriodically, 300000);
 
 function printBanner() {
   const banner = `

@@ -98,9 +98,10 @@ function printBanner() {
   | $$    $$      | $$            | $$  | $$      | $$  \ $$        | $$        | $$                | $$    
   |  $$$$$$/      | $$$$$$$$      | $$  | $$      | $$  | $$       /$$$$$$      | $$                | $$    
    \______/       |________/      |__/  |__/      |__/  |__/      |______/      |__/                |__/    
-                                                                                                            
-                                     Bot is running...
-                                   Type ctrl + c to stop                                                                       
+                                             
+   
+                                       Bot is running...
+                                     Type ctrl + c to stop                                                                       
                                                                                                             
   `;
   console.log(banner);

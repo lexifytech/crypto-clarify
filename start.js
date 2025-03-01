@@ -1,5 +1,5 @@
 const { spawn } = require("child_process");
-const generalParams = require("./settings/general.json")
+const generalParams = require("./settings/general.json");
 
 const processName = generalParams.TELEGRAM_BOT_FATHER_TOKEN;
 
@@ -101,8 +101,8 @@ function printBanner() {
                                              
    
                                        Bot is running...
-                                     Type ctrl + c to stop                                                                       
-                                                                                                            
+                                     Type ctrl + c to stop
+                        Run 'npx pm2 logs' in another console to see logs                                                                                                                                           
   `;
   console.log(banner);
 }

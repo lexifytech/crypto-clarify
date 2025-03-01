@@ -4,7 +4,6 @@
 - install node
 - install yarn
 - install git
-- install pm2 `npm i pm2 -g`
 - run `chmod +x start-bot-linux-mac.sh` to give permission (only windows and mac)
 - click o run `start-bot-linux-mac.sh` or `start-bot-windows.bat` to start bot;
 - run `pm2 logs` to see logs (optional)

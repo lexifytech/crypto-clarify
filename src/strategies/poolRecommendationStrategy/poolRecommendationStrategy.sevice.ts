@@ -409,7 +409,7 @@ export default class PoolRecommendationStrategyService {
 
     if (!solTokenBalance || solTokenBalance?.amountUSD <= 2) {
       console.log(`Insufficient SOL Balance. You need > $2 in SOL`);
-      errorMessages.push(`Insufficient SOL Balance. You need > $5 in SOL`);
+      errorMessages.push(`Insufficient SOL Balance. You need > $2 in SOL`);
     }
 
     if (

@@ -27,7 +27,6 @@ main();
 
 process.stdin.resume();
 
-
 process.on("SIGINT", () => {
   shutdown()
     .catch((err) => console.error("Erro no SIGINT shutdown:", err))
@@ -67,13 +66,11 @@ function runCommand(command, args, options = {}) {
 
 function checkMousePermission() {
   try {
-    const pos = robot.getMousePos();
-    console.log(`Acesso ao mouse concedido. Posição atual: (${pos.x}, ${pos.y})`);
+    let currentPos = robot.getMousePos();
+    robot.moveMouse(currentPos.x + 10, currentPos.y);
   } catch (error) {
     console.error("Permissão para controlar o mouse não concedida.");
     console.error("Por favor, conceda a permissão de Acessibilidade:");
-    console.error("Em macOS: Vá para Preferências do Sistema > Segurança e Privacidade > Privacidade > Acessibilidade e adicione este terminal.");
-    process.exit(1);
   }
 }
 
@@ -90,23 +87,19 @@ async function tryRun(command, args) {
 
 function moveMousePeriodically() {
   let currentPos = robot.getMousePos();
-
-  // Se o usuário não moveu o mouse desde a última verificação,
-  // realiza um movimento sutil de 1 pixel para a direita e volta
   if (currentPos.x === lastPos.x && currentPos.y === lastPos.y) {
-    // Move o mouse 1 pixel para a direita
     robot.moveMouse(currentPos.x + 1, currentPos.y);
     setTimeout(() => {
-      // Verifica se o mouse ainda está na posição modificada
       let posAfterDelay = robot.getMousePos();
-      if (posAfterDelay.x === currentPos.x + 1 && posAfterDelay.y === currentPos.y) {
+      if (
+        posAfterDelay.x === currentPos.x + 1 &&
+        posAfterDelay.y === currentPos.y
+      ) {
         robot.moveMouse(currentPos.x, currentPos.y);
       }
-      // Atualiza a última posição conhecida
       lastPos = robot.getMousePos();
     }, 1000);
   } else {
-    // Se o usuário moveu o mouse, atualiza a última posição sem interferir
     lastPos = currentPos;
   }
 }

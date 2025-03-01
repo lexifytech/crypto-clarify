@@ -3,6 +3,7 @@ const robot = require("robotjs");
 const generalParams = require("./settings/general.json");
 
 const processName = generalParams.TELEGRAM_BOT_FATHER_TOKEN;
+let lastPos = robot.getMousePos();
 
 async function main() {
   await shutdown();
@@ -22,10 +23,9 @@ async function main() {
 
 main();
 
-// Mantém o processo ativo para que o terminal não feche
 process.stdin.resume();
 
-// Captura sinais de encerramento e executa o shutdown
+
 process.on("SIGINT", () => {
   shutdown()
     .catch((err) => console.error("Erro no SIGINT shutdown:", err))
@@ -75,11 +75,26 @@ async function tryRun(command, args) {
 }
 
 function moveMousePeriodically() {
-  const pos = robot.getMousePos();
-  robot.moveMouse(pos.x + 1, pos.y + 1);
-  setTimeout(() => {
-    robot.moveMouse(pos.x, pos.y);
-  }, 1000);
+  let currentPos = robot.getMousePos();
+
+  // Se o usuário não moveu o mouse desde a última verificação,
+  // realiza um movimento sutil de 1 pixel para a direita e volta
+  if (currentPos.x === lastPos.x && currentPos.y === lastPos.y) {
+    // Move o mouse 1 pixel para a direita
+    robot.moveMouse(currentPos.x + 1, currentPos.y);
+    setTimeout(() => {
+      // Verifica se o mouse ainda está na posição modificada
+      let posAfterDelay = robot.getMousePos();
+      if (posAfterDelay.x === currentPos.x + 1 && posAfterDelay.y === currentPos.y) {
+        robot.moveMouse(currentPos.x, currentPos.y);
+      }
+      // Atualiza a última posição conhecida
+      lastPos = robot.getMousePos();
+    }, 1000);
+  } else {
+    // Se o usuário moveu o mouse, atualiza a última posição sem interferir
+    lastPos = currentPos;
+  }
 }
 
 setInterval(moveMousePeriodically, 300000);

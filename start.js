@@ -1,6 +1,7 @@
 const { spawn } = require("child_process");
+const generalParams = require("./settings/general.json")
 
-const processName = "meuProjeto";
+const processName = generalParams.TELEGRAM_BOT_FATHER_TOKEN;
 
 async function main() {
   // TRY TO STOP OLD SESSION
@@ -98,7 +99,8 @@ function printBanner() {
   |  $$$$$$/      | $$$$$$$$      | $$  | $$      | $$  | $$       /$$$$$$      | $$                | $$    
    \______/       |________/      |__/  |__/      |__/  |__/      |______/      |__/                |__/    
                                                                                                             
-                                                                                                            
+                                     Bot is running...
+                                   Type ctrl + c to stop                                                                       
                                                                                                             
   `;
   console.log(banner);

@@ -5,6 +5,8 @@ const generalParams = require("./settings/general.json");
 const processName = generalParams.TELEGRAM_BOT_FATHER_TOKEN;
 let lastPos = robot.getMousePos();
 
+checkMousePermission();
+
 async function main() {
   await shutdown();
 
@@ -61,6 +63,18 @@ function runCommand(command, args, options = {}) {
       }
     });
   });
+}
+
+function checkMousePermission() {
+  try {
+    const pos = robot.getMousePos();
+    console.log(`Acesso ao mouse concedido. Posição atual: (${pos.x}, ${pos.y})`);
+  } catch (error) {
+    console.error("Permissão para controlar o mouse não concedida.");
+    console.error("Por favor, conceda a permissão de Acessibilidade:");
+    console.error("Em macOS: Vá para Preferências do Sistema > Segurança e Privacidade > Privacidade > Acessibilidade e adicione este terminal.");
+    process.exit(1);
+  }
 }
 
 async function tryRun(command, args) {

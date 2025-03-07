@@ -33,6 +33,7 @@ import {
   unpackAccount,
 } from "@solana/spl-token";
 import { userSettings } from "../../../../settingsData";
+import { token } from "@coral-xyz/anchor/dist/cjs/utils";
 
 type PoolRes = {
   address: string;
@@ -317,9 +318,10 @@ export default class OrcaService {
       inputTokenMint: baseToken.address,
       inputTokenAmount: new BN(baseTokenAmount),
       slippageTolerance: Percentage.fromFraction(slippagePercent, 100),
-      tokenExtensionCtx: await TokenExtensionUtil.buildTokenExtensionContext(
+      tokenExtensionCtx: await TokenExtensionUtil.buildTokenExtensionContextForPool(
         this.ctx.fetcher,
-        whirlpoolData
+        tokenA.address,
+        tokenB.address,
       ),
     });
 

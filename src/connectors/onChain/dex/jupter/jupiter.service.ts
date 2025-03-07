@@ -8,7 +8,6 @@ import { getMint } from "@solana/spl-token";
 import { database } from "../../../../services/database.service";
 import SolanaService from "../../chain/solana/solana.service";
 import { config } from "../../../../config/config";
-import { retryOperation } from "../../../../utils/general";
 
 export default class JupiterService {
   private static instance: JupiterService;
@@ -70,7 +69,10 @@ export default class JupiterService {
     }
 
     console.log(
-      "SWAP USD VALUE:",
+      "SWAPING USD VALUE:",
+      inputMint,
+      "->",
+      outputMint,
       parseFloat(quoteResponse.swapUsdValue).toFixed(2)
     );
 

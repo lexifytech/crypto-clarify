@@ -8,6 +8,7 @@ import { DecimalUtil } from "@orca-so/common-sdk";
 import Decimal from "decimal.js";
 import { BN } from "@coral-xyz/anchor";
 import { TPoolData, TPositionData } from "../../types";
+import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 
 export default class PoolRecommendationStrategyService {
   private static instance: PoolRecommendationStrategyService;
@@ -98,6 +99,9 @@ export default class PoolRecommendationStrategyService {
     let countClosePositions = 0;
 
     let positions = await this.dex.getOpenPositions("orca");
+
+    if (positions.length <= 0) return { positions, logClosePositions };
+
     for (let position of positions) {
       const storagedPosition = await database.getOpenPositionByPositionMint(
         position.positionMint
@@ -235,7 +239,7 @@ export default class PoolRecommendationStrategyService {
         );
 
         console.log(
-          "OPEN POOL",
+          "OPENING POOL",
           `${opportunity.tokenA.symbol}/${opportunity.tokenB.symbol} ~ $${usdEntryValue}`
         );
 
@@ -311,23 +315,27 @@ export default class PoolRecommendationStrategyService {
 
     let allBalances = await this.chain.getBalances("solana");
 
+    const baseAssetMint =
+      userSettings["POOLRECOMMENDATIONSTRATEGY"]["BASE_ASSET"];
+
     const filteredBalances = allBalances.filter(
       (b) =>
+        b.mint !== config.SOL_MINT &&
+        b.mint !== baseAssetMint &&
         !userSettings["POOLRECOMMENDATIONSTRATEGY"]["HOLD_TOKENS"].find(
           (t: any) => t === b.mint
         )
     );
 
     for (let balance of filteredBalances) {
+      if (balance.mint === config.SOL_MINT) continue;
       const inputMint = balance.mint;
-      const outputMint =
-        userSettings["POOLRECOMMENDATIONSTRATEGY"]["BASE_ASSET"];
       const inputAmount = balance.amount;
 
       const executeDirectSwapRes = await this.dex.executeDirectSwap(
         "jupiter",
         inputMint,
-        outputMint,
+        baseAssetMint,
         inputAmount,
         false,
         false,
@@ -343,11 +351,14 @@ export default class PoolRecommendationStrategyService {
       soldTokens.push(inputMint);
       logSellTokens += ` - ${minimizeHash(inputMint)} ~$${balance.amountUSD}`;
     }
+    logBalances += `\n\nHOLD WALLET:\n`;
+
+    const fixSolLog = await this.fixSolBalance(allBalances);
+    logBalances += fixSolLog;
 
     // WALLET WALLET HOLD LOG
     if (logSellTokens) allBalances = await this.chain.getBalances("solana");
     let balancesAmountUsd = 0;
-    logBalances += `\n\nHOLD WALLET:\n`;
     allBalances.forEach((balance) => {
       const wasSoldToken = soldTokens.find((mint) => mint === balance.mint);
       if (!wasSoldToken) {
@@ -397,6 +408,55 @@ export default class PoolRecommendationStrategyService {
     return { logSellTokens, logBalances };
   }
 
+  private async fixSolBalance(balances: any[]) {
+    const solBalance = balances.find((b) => b.mint === config.SOL_MINT);
+    const baseAssetMint =
+      userSettings["POOLRECOMMENDATIONSTRATEGY"]["BASE_ASSET"];
+    const solMinBalance =
+      userSettings["POOLRECOMMENDATIONSTRATEGY"]["MIN_SOL_BALANCE"] *
+      LAMPORTS_PER_SOL;
+
+    //BUY SOL
+    if ((solBalance?.amount || 0) < solMinBalance - (5 / 100) * solMinBalance) {
+      const buySolAmount = solMinBalance - (solBalance?.amount || 0);
+      const executeDirectSwapRes = await this.dex.executeDirectSwap(
+        "jupiter",
+        baseAssetMint,
+        config.SOL_MINT,
+        buySolAmount,
+        true,
+        false,
+        2
+      );
+
+      if (executeDirectSwapRes) {
+        return ` - BUY SOL ~$${buySolAmount / LAMPORTS_PER_SOL}`;
+      }
+    } else {
+      const solTolerance = solMinBalance + (10 / 100) * solMinBalance;
+
+      // IF YOU HAVE MORE THAN 5%, SELL IT
+      if ((solBalance?.amount || 0) > solTolerance) {
+        const selSolAmount = (solBalance?.amount || 0) - solMinBalance;
+        const executeDirectSwapRes = await this.dex.executeDirectSwap(
+          "jupiter",
+          config.SOL_MINT,
+          baseAssetMint,
+          selSolAmount,
+          false,
+          false,
+          2
+        );
+
+        if (executeDirectSwapRes) {
+          return ` - SELL SOL ~$${selSolAmount / LAMPORTS_PER_SOL}`;
+        }
+      }
+    }
+
+    return "";
+  }
+
   private async verifyBalancesBeforeExecute() {
     const errorMessages = [];
     const balances = await this.chain.getBalances("solana");
@@ -405,12 +465,8 @@ export default class PoolRecommendationStrategyService {
       (e) => e.mint === userSettings["POOLRECOMMENDATIONSTRATEGY"]["BASE_ASSET"]
     );
 
-    const solTokenBalance = balances.find((e) => e.mint === config.SOL_MINT);
-
-    if (!solTokenBalance || solTokenBalance?.amountUSD <= 2) {
-      console.log(`Insufficient SOL Balance. You need > $2 in SOL`);
-      errorMessages.push(`Insufficient SOL Balance. You need > $2 in SOL`);
-    }
+    const logFixSol = await this.fixSolBalance(balances);
+    console.log(logFixSol);
 
     if (
       !baseTokenBalance ||
@@ -444,55 +500,73 @@ export default class PoolRecommendationStrategyService {
           outputAmountA: outputAmountTokenA,
           outputAmountB: outputAmountTokenB,
         };
+
       const baseAssetMint =
         userSettings["POOLRECOMMENDATIONSTRATEGY"]["BASE_ASSET"];
-      const tokenABalance =
+      const solMinBalance =
+        userSettings["POOLRECOMMENDATIONSTRATEGY"]["MIN_SOL_BALANCE"] *
+        LAMPORTS_PER_SOL;
+
+      // IF SOL AMOUUNT =  AMOUUNT - MIN_SOL_BALANCE
+      const tokenABalances =
         balances.find((b: any) => b.mint === poolData.tokenA.address) || 0;
-      const tokenBBalance =
+      const tokenBBalances =
         balances.find((b: any) => b.mint === poolData.tokenB.address) || 0;
+
+      let tokenABalance: BN;
+      let tokenBBalance: BN;
+
+      if (poolData.tokenA.address === config.SOL_MINT) {
+        tokenABalance = new BN(tokenABalances.amount || 0).sub(
+          new BN(solMinBalance)
+        );
+      } else {
+        tokenABalance = new BN(tokenABalances.amount || 0);
+      }
+
+      if (poolData.tokenB.address === config.SOL_MINT) {
+        tokenBBalance = new BN(tokenBBalances.amount || 0).sub(
+          new BN(solMinBalance)
+        );
+      } else {
+        tokenBBalance = new BN(tokenBBalances.amount || 0);
+      }
 
       let outputAmountA = outputAmountTokenA;
       let outputAmountB = outputAmountTokenB;
 
       if (
-        (tokenABalance.amount || 0) < outputAmountTokenA.toNumber() &&
+        tokenABalance.cmp(outputAmountTokenA) &&
         poolData.tokenA.address !== baseAssetMint
       ) {
-        const tokenOutAmount = outputAmountTokenA.sub(
-          new BN(tokenABalance.amount || 0)
-        );
-        const resSwap1 = await this.dex.executeDirectSwap(
+        const swapRes = await this.dex.executeDirectSwap(
           "jupiter",
           baseAssetMint,
           poolData.tokenA.address,
-          tokenOutAmount.toString(),
-          true
+          outputAmountTokenA.toString(),
+          true,
         );
-        outputAmountA = outputAmountTokenA.add(
-          new BN(resSwap1?.quoteResponse.outAmount)
-        );
+        outputAmountA = new BN(swapRes.quoteResponse.outAmount);
       }
 
       if (
-        (tokenBBalance.amount || 0) < outputAmountTokenB.toNumber() &&
+        tokenBBalance.cmp(outputAmountTokenB) &&
         poolData.tokenB.address !== baseAssetMint
       ) {
-        const tokenOutAmount = outputAmountTokenB.sub(
-          new BN(tokenBBalance.amount || 0)
-        );
-        const resSwap2 = await this.dex.executeDirectSwap(
+        const swapRes = await this.dex.executeDirectSwap(
           "jupiter",
           baseAssetMint,
           poolData.tokenB.address,
-          tokenOutAmount.toString(),
-          true
+          outputAmountTokenB.toString(),
+          true,
         );
-        outputAmountB = outputAmountTokenB.add(
-          new BN(resSwap2?.quoteResponse.outAmount)
-        );
+        outputAmountB = new BN(swapRes.quoteResponse.outAmount);
       }
 
-      return { outputAmountA, outputAmountB };
+      return {
+        outputAmountA,
+        outputAmountB,
+      };
     } catch (error: any) {
       console.log("ERROR SWAPPING: ", error.message);
       return null;
